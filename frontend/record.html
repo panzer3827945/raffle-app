@@ -2,22 +2,29 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>抽獎紀錄</title>
+
 <style>
 body { font-family: sans-serif; padding: 20px; }
-table { border-collapse: collapse; width: 100%; }
+table { border-collapse: collapse; width: 100%; margin-top: 16px; }
 th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
 button { margin-left: 6px; }
 </style>
 </head>
 
 <body>
+
 <h2>抽獎紀錄</h2>
 
-密碼：
-<input type="password" id="pwd">
-<button onclick="load()">表示</button>
-<button onclick="clearAll()">履歴削除</button>
+<div>
+  密碼：
+  <input type="password" id="pwd">
+  <button onclick="load()">表示</button>
+  <button onclick="clearAll()">履歴削除</button>
+</div>
 
 <table>
   <thead>
@@ -43,8 +50,8 @@ async function load(){
   const pwd = document.getElementById("pwd").value;
 
   const res = await fetch("/api/history",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ password: pwd })
   });
 
@@ -75,14 +82,14 @@ async function clearAll(){
   if(!confirm("履歴をすべて削除しますか？")) return;
 
   const res = await fetch("/api/reset",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ password: pwd })
   });
 
   if(res.ok){
     alert("履歴を削除しました");
-    document.getElementById("rows").innerHTML="";
+    document.getElementById("rows").innerHTML = "";
   }else{
     alert("パスワードが違います");
   }
