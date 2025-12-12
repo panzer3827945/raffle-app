@@ -6,19 +6,35 @@ const sqlite3 = require("sqlite3").verbose();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/* ===== Middleware（一定要在最前面）===== */
+/* =========================================================
+ * Middleware（一定要最前面）
+ * ========================================================= */
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../frontend")));
 
-/* ===== 資料目錄（Railway OK）===== */
-const DATA_DIR = path.join(__dirname, "../data");
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+/* =========================================================
+ * SQLite 資料目錄（Railway 穩定寫入）
+ * =========================================================
+ * Railway / 雲端環境不保證專案目錄可寫
+ * /tmp 在 Railway 一定可寫
+ */
+const DATA_DIR = "/tmp";
+
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 
 const dbPath = path.join(DATA_DIR, "raffle.db");
 
-/* ===== DB ===== */
+/* =========================================================
+ * DB 初始化
+ * ========================================================= */
 const db = new sqlite3.Database(dbPath, err => {
-  if (err) console.error("DB open error:", err);
+  if (err) {
+    console.error("DB open error:", err);
+  } else {
+    console.log("DB opened:", dbPath);
+  }
 });
 
 db.serialize(() => {
@@ -34,7 +50,9 @@ db.serialize(() => {
   `);
 });
 
-/* ===== 密碼檢查（安全版，不會 500）===== */
+/* =========================================================
+ * 密碼驗證（防呆・不會 500）
+ * ========================================================= */
 function checkPassword(req, res) {
   try {
     if (!process.env.ADMIN_PASSWORD) {
@@ -60,9 +78,11 @@ function checkPassword(req, res) {
   }
 }
 
-/* ===== API ===== */
+/* =========================================================
+ * API
+ * ========================================================= */
 
-/* 新增抽獎紀錄（不驗密碼） */
+/* 新增抽獎紀錄（不需要密碼） */
 app.post("/api/record", (req, res) => {
   const { name, prize, mode, device } = req.body || {};
   const time = new Date().toISOString();
@@ -81,7 +101,7 @@ app.post("/api/record", (req, res) => {
   );
 });
 
-/* 查詢紀錄（需密碼） */
+/* 查詢抽獎紀錄（需密碼） */
 app.post("/api/history", (req, res) => {
   console.log("HISTORY request body =", req.body);
 
@@ -101,7 +121,7 @@ app.post("/api/history", (req, res) => {
   );
 });
 
-/* 清除紀錄（需密碼） */
+/* 清空抽獎紀錄（需密碼） */
 app.post("/api/reset", (req, res) => {
   console.log("RESET request body =", req.body);
 
@@ -116,14 +136,18 @@ app.post("/api/reset", (req, res) => {
   });
 });
 
-/* ===== 前端入口 ===== */
+/* =========================================================
+ * 前端入口
+ * ========================================================= */
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/index.html"));
 });
 
-/* ===== Start ===== */
+/* =========================================================
+ * Start
+ * ========================================================= */
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
   console.log("ADMIN_PASSWORD =", process.env.ADMIN_PASSWORD);
-  console.log("SERVER VERSION = RAFFLE-API-HISTORY-FIXED");
+  console.log("SERVER VERSION = RAFFLE-FINAL-STABLE");
 });
