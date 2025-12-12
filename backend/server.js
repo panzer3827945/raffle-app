@@ -6,6 +6,10 @@ const sqlite3 = require("sqlite3").verbose();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+/* ===== Middleware（一定要在最前面）===== */
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "../frontend")));
+
 /* ===== 資料目錄（Railway OK）===== */
 const DATA_DIR = path.join(__dirname, "../data");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -13,7 +17,10 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const dbPath = path.join(DATA_DIR, "raffle.db");
 
 /* ===== DB ===== */
-const db = new sqlite3.Database(dbPath);
+const db = new sqlite3.Database(dbPath, err => {
+  if (err) console.error("DB open error:", err);
+});
+
 db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS records (
@@ -27,28 +34,37 @@ db.serialize(() => {
   `);
 });
 
-/* ===== Middleware ===== */
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "../frontend")));
-
-/* ===== 密碼檢查 ===== */
+/* ===== 密碼檢查（安全版，不會 500）===== */
 function checkPassword(req, res) {
-  const pwd = req.body?.password;
-  if (!process.env.ADMIN_PASSWORD) {
-    return res.status(500).json({ message: "ADMIN_PASSWORD not set" });
-  }
-  if (pwd !== process.env.ADMIN_PASSWORD) {
-    res.status(401).json({ message: "password error" });
+  try {
+    if (!process.env.ADMIN_PASSWORD) {
+      res.status(500).json({ message: "ADMIN_PASSWORD not set" });
+      return false;
+    }
+
+    if (!req.body || typeof req.body.password !== "string") {
+      res.status(400).json({ message: "password missing" });
+      return false;
+    }
+
+    if (req.body.password !== process.env.ADMIN_PASSWORD) {
+      res.status(401).json({ message: "password error" });
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    console.error("checkPassword exception:", e);
+    res.status(500).json({ message: "server error" });
     return false;
   }
-  return true;
 }
 
 /* ===== API ===== */
 
 /* 新增抽獎紀錄（不驗密碼） */
 app.post("/api/record", (req, res) => {
-  const { name, prize, mode, device } = req.body;
+  const { name, prize, mode, device } = req.body || {};
   const time = new Date().toISOString();
 
   db.run(
@@ -56,7 +72,10 @@ app.post("/api/record", (req, res) => {
      VALUES (?,?,?,?,?)`,
     [time, name, mode, prize, device],
     err => {
-      if (err) return res.status(500).json({ ok: false });
+      if (err) {
+        console.error("INSERT error:", err);
+        return res.status(500).json({ ok: false });
+      }
       res.json({ ok: true });
     }
   );
@@ -64,6 +83,8 @@ app.post("/api/record", (req, res) => {
 
 /* 查詢紀錄（需密碼） */
 app.post("/api/history", (req, res) => {
+  console.log("HISTORY request body =", req.body);
+
   if (!checkPassword(req, res)) return;
 
   db.all(
@@ -71,6 +92,10 @@ app.post("/api/history", (req, res) => {
      FROM records
      ORDER BY time DESC`,
     (err, rows) => {
+      if (err) {
+        console.error("SELECT error:", err);
+        return res.status(500).json({ message: "db error" });
+      }
       res.json(rows || []);
     }
   );
@@ -78,10 +103,15 @@ app.post("/api/history", (req, res) => {
 
 /* 清除紀錄（需密碼） */
 app.post("/api/reset", (req, res) => {
+  console.log("RESET request body =", req.body);
+
   if (!checkPassword(req, res)) return;
 
   db.run("DELETE FROM records", err => {
-    if (err) return res.status(500).json({ ok: false });
+    if (err) {
+      console.error("DELETE error:", err);
+      return res.status(500).json({ ok: false });
+    }
     res.json({ ok: true });
   });
 });
@@ -95,4 +125,5 @@ app.get("*", (req, res) => {
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
   console.log("ADMIN_PASSWORD =", process.env.ADMIN_PASSWORD);
+  console.log("SERVER VERSION = RAFFLE-API-HISTORY-FIXED");
 });
