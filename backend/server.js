@@ -94,4 +94,5 @@ app.get("*", (req, res) => {
 /* ===== Start ===== */
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
+  console.log("ADMIN_PASSWORD =", process.env.ADMIN_PASSWORD);
 });
