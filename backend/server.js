@@ -25,25 +25,28 @@ db.serialize(() => {
       device TEXT
     )
   `);
-  db.run(`
-    CREATE TABLE IF NOT EXISTS meta (
-      key TEXT PRIMARY KEY,
-      value TEXT
-    )
-  `);
-  db.run(`
-    INSERT OR IGNORE INTO meta(key,value)
-    VALUES ('resetVersion','1')
-  `);
 });
 
 /* ===== Middleware ===== */
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../frontend")));
 
+/* ===== 密碼檢查 ===== */
+function checkPassword(req, res) {
+  const pwd = req.body?.password;
+  if (!process.env.ADMIN_PASSWORD) {
+    return res.status(500).json({ message: "ADMIN_PASSWORD not set" });
+  }
+  if (pwd !== process.env.ADMIN_PASSWORD) {
+    res.status(401).json({ message: "password error" });
+    return false;
+  }
+  return true;
+}
+
 /* ===== API ===== */
 
-/* 抽獎紀錄 */
+/* 新增抽獎紀錄（不驗密碼） */
 app.post("/api/record", (req, res) => {
   const { name, prize, mode, device } = req.body;
   const time = new Date().toISOString();
@@ -52,41 +55,35 @@ app.post("/api/record", (req, res) => {
     `INSERT INTO records(time,name,mode,prize,device)
      VALUES (?,?,?,?,?)`,
     [time, name, mode, prize, device],
-    () => res.json({ ok: true })
+    err => {
+      if (err) return res.status(500).json({ ok: false });
+      res.json({ ok: true });
+    }
   );
 });
 
-/* 查詢紀錄 */
-app.get("/api/history", (req, res) => {
+/* 查詢紀錄（需密碼） */
+app.post("/api/history", (req, res) => {
+  if (!checkPassword(req, res)) return;
+
   db.all(
     `SELECT time,name,mode,prize,device
      FROM records
      ORDER BY time DESC`,
-    (err, rows) => res.json(rows || [])
-  );
-});
-
-/* 清除紀錄（同步前端端末限制） */
-app.post("/api/reset", (req, res) => {
-  db.serialize(() => {
-    db.run("DELETE FROM records");
-    db.run(
-      `UPDATE meta
-       SET value = CAST(value AS INTEGER) + 1
-       WHERE key='resetVersion'`
-    );
-    res.json({ ok: true });
-  });
-});
-
-/* reset version */
-app.get("/api/reset-version", (req, res) => {
-  db.get(
-    `SELECT value FROM meta WHERE key='resetVersion'`,
-    (err, row) => {
-      res.json({ version: row ? row.value : "1" });
+    (err, rows) => {
+      res.json(rows || []);
     }
   );
+});
+
+/* 清除紀錄（需密碼） */
+app.post("/api/reset", (req, res) => {
+  if (!checkPassword(req, res)) return;
+
+  db.run("DELETE FROM records", err => {
+    if (err) return res.status(500).json({ ok: false });
+    res.json({ ok: true });
+  });
 });
 
 /* ===== 前端入口 ===== */
@@ -96,5 +93,5 @@ app.get("*", (req, res) => {
 
 /* ===== Start ===== */
 app.listen(PORT, () => {
-  console.log("http://localhost:" + PORT);
+  console.log("Server running on port " + PORT);
 });

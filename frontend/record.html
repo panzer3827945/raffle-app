@@ -2,56 +2,22 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>抽選履歴</title>
-
+<title>抽獎紀錄</title>
 <style>
-body{
-  font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",Arial;
-  background:#fff4f2;
-  padding:16px;
-}
-h2{text-align:center}
-
-input,button{
-  padding:10px;
-  font-size:16px;
-}
-button{
-  margin-left:6px;
-  border:none;
-  border-radius:6px;
-  background:#c0392b;
-  color:#fff;
-}
-
-table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:16px;
-  background:#fff;
-}
-th,td{
-  border:1px solid #ddd;
-  padding:8px;
-  text-align:center;
-}
-th{
-  background:#fdecea;
-}
+body { font-family: sans-serif; padding: 20px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+button { margin-left: 6px; }
 </style>
 </head>
 
 <body>
+<h2>抽獎紀錄</h2>
 
-<h2>📊 抽選履歴</h2>
-
-<div>
-  パスワード：
-  <input type="password" id="pwd" value="">
-  <button onclick="load()">表示</button>
-  <button onclick="clearAll()">履歴削除</button>
-</div>
+密碼：
+<input type="password" id="pwd">
+<button onclick="load()">表示</button>
+<button onclick="clearAll()">履歴削除</button>
 
 <table>
   <thead>
@@ -75,10 +41,11 @@ function displayMode(mode){
 
 async function load(){
   const pwd = document.getElementById("pwd").value;
-  const res = await fetch("/api/list",{
+
+  const res = await fetch("/api/history",{
     method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({password:pwd})
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ password: pwd })
   });
 
   if(!res.ok){
@@ -107,10 +74,10 @@ async function clearAll(){
   const pwd = document.getElementById("pwd").value;
   if(!confirm("履歴をすべて削除しますか？")) return;
 
-  const res = await fetch("/api/clear",{
+  const res = await fetch("/api/reset",{
     method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({password:pwd})
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ password: pwd })
   });
 
   if(res.ok){
