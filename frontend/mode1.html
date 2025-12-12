@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>年会抽選（ALL）</title>
+
+<script src="shared.js"></script>
+
+<style>
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",Arial;
+  background:linear-gradient(180deg,#eef4ff,#ffffff);
+  text-align:center;
+  padding:16px;
+}
+
+h2{margin:12px 0;font-weight:700}
+
+.btn{
+  width:90%;
+  max-width:360px;
+  padding:16px;
+  margin:14px auto;
+  border:none;
+  border-radius:999px;
+  background:linear-gradient(135deg,#4A90E2,#2F6FD3);
+  color:#fff;
+  font-size:18px;
+}
+
+.stage{
+  width:340px;
+  height:340px;
+  margin:14px auto;
+  position:relative;
+}
+
+canvas{width:340px;height:340px}
+
+.pointer{
+  position:absolute;
+  right:-10px;
+  top:50%;
+  transform:translateY(-50%);
+  width:0;height:0;
+  border-top:16px solid transparent;
+  border-bottom:16px solid transparent;
+  border-right:32px solid #2F6FD3;
+}
+
+#result{font-size:20px;font-weight:700}
+</style>
+</head>
+
+<body>
+
+<h2>🎉 年会抽選（ALL）</h2>
+<button class="btn" onclick="location.href='index.html'">← トップへ戻る</button>
+
+<div class="stage">
+  <canvas id="wheel" width="340" height="340"></canvas>
+  <div class="pointer"></div>
+</div>
+
+<button class="btn" onclick="start()">抽選スタート</button>
+<div id="result"></div>
+
+<script>
+const canvas=document.getElementById("wheel");
+const ctx=canvas.getContext("2d");
+
+const prizes=[
+  {text:"1000",value:1000,weight:70,color:"#D4AF37"},
+  {text:"500", value:500, weight:20,color:"#C0392B"},
+  {text:"100", value:100, weight:10,color:"#F7DC6F"}
+];
+const total=prizes.reduce((s,p)=>s+p.weight,0);
+let spinning=false;
+
+function drawWheel(angle){
+  ctx.clearRect(0,0,340,340);
+  let start=angle;
+
+  prizes.forEach(p=>{
+    const arc=(p.weight/total)*Math.PI*2;
+    ctx.beginPath();
+    ctx.moveTo(170,170);
+    ctx.arc(170,170,145,start,start+arc);
+    ctx.fillStyle=p.color;
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(170,170);
+    ctx.rotate(start+arc/2);
+    ctx.textAlign="center";
+    ctx.font="bold 22px Arial";
+    ctx.fillStyle="#333";
+    ctx.fillText(p.text,100,8);
+    ctx.restore();
+
+    start+=arc;
+  });
+
+  ctx.beginPath();
+  ctx.arc(170,170,150,0,Math.PI*2);
+  ctx.lineWidth=6;
+  ctx.strokeStyle="#4A90E2";
+  ctx.stroke();
+}
+
+function prizeByAngle(angle){
+  const a=(angle%(Math.PI*2)+Math.PI*2)%(Math.PI*2);
+  let acc=0;
+  for(const p of prizes){
+    const arc=(p.weight/total)*Math.PI*2;
+    if(a>=acc && a<acc+arc) return p.value;
+    acc+=arc;
+  }
+  return prizes[0].value;
+}
+
+drawWheel(0);
+
+function start(){
+  if(spinning) return;
+
+  const name=localStorage.getItem("raffleName");
+  if(!name) return alert("トップで名前を入力してください");
+
+  const dev=getDeviceID();
+  const used=JSON.parse(localStorage.getItem("used-limit")||"[]");
+  if(used.includes(dev)) return alert("この端末はすでに抽選済みです");
+
+  spinning=true;
+  result.innerText="";
+
+  const rnd=Math.random()*total;
+  let accW=0,startAngle=0,targetArc=0;
+
+  for(const p of prizes){
+    if(rnd<accW+p.weight){
+      targetArc=(p.weight/total)*Math.PI*2;
+      break;
+    }
+    startAngle+=(p.weight/total)*Math.PI*2;
+    accW+=p.weight;
+  }
+
+  const offset=Math.random()*targetArc;
+  const target=startAngle+offset;
+  const spins=(5+Math.random()*2)*Math.PI*2;
+  const finalAngle=spins-target;
+
+  const t0=performance.now(),duration=4200;
+
+  function anim(t){
+    const p=Math.min((t-t0)/duration,1);
+    const ease=1-Math.pow(1-p,3);
+    drawWheel(ease*finalAngle);
+
+    if(p<1){
+      requestAnimationFrame(anim);
+    }else{
+      const stopAngle=
+        (Math.PI*2-(finalAngle%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+      const prize=prizeByAngle(stopAngle);
+
+      used.push(dev);
+      localStorage.setItem("used-limit",JSON.stringify(used));
+
+      submitRecord(name,prize,"LIMIT");
+      result.innerText=`${name} さん：${prize} 当選`;
+      spinning=false;
+    }
+  }
+  requestAnimationFrame(anim);
+}
+</script>
+
+</body>
+</html>

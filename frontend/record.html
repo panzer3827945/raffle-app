@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>抽選履歴</title>
+
+<style>
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",Arial;
+  background:#fff4f2;
+  padding:16px;
+}
+h2{text-align:center}
+
+input,button{
+  padding:10px;
+  font-size:16px;
+}
+button{
+  margin-left:6px;
+  border:none;
+  border-radius:6px;
+  background:#c0392b;
+  color:#fff;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:16px;
+  background:#fff;
+}
+th,td{
+  border:1px solid #ddd;
+  padding:8px;
+  text-align:center;
+}
+th{
+  background:#fdecea;
+}
+</style>
+</head>
+
+<body>
+
+<h2>📊 抽選履歴</h2>
+
+<div>
+  パスワード：
+  <input type="password" id="pwd" value="">
+  <button onclick="load()">表示</button>
+  <button onclick="clearAll()">履歴削除</button>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>日時</th>
+      <th>名前</th>
+      <th>モード</th>
+      <th>賞品</th>
+      <th>端末ID</th>
+    </tr>
+  </thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<script>
+function displayMode(mode){
+  if(mode === "LIMIT") return "ALL";
+  if(mode === "NOLIMIT") return "BINGO";
+  return mode;
+}
+
+async function load(){
+  const pwd = document.getElementById("pwd").value;
+  const res = await fetch("/api/list",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({password:pwd})
+  });
+
+  if(!res.ok){
+    alert("パスワードが違います");
+    return;
+  }
+
+  const data = await res.json();
+  const tbody = document.getElementById("rows");
+  tbody.innerHTML = "";
+
+  data.forEach(r=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${r.time}</td>
+      <td>${r.name}</td>
+      <td>${displayMode(r.mode)}</td>
+      <td>${r.prize}</td>
+      <td>${r.device}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function clearAll(){
+  const pwd = document.getElementById("pwd").value;
+  if(!confirm("履歴をすべて削除しますか？")) return;
+
+  const res = await fetch("/api/clear",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({password:pwd})
+  });
+
+  if(res.ok){
+    alert("履歴を削除しました");
+    document.getElementById("rows").innerHTML="";
+  }else{
+    alert("パスワードが違います");
+  }
+}
+</script>
+
+</body>
+</html>

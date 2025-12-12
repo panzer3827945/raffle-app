@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>年会抽選システム</title>
+
+<style>
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",Arial;
+  background:linear-gradient(180deg,#f5f8ff,#ffffff);
+  text-align:center;
+  padding:20px;
+}
+
+h2{margin-bottom:20px}
+
+input{
+  width:90%;
+  max-width:360px;
+  padding:16px;
+  font-size:18px;
+  border-radius:10px;
+  border:1px solid #ccc;
+  margin-bottom:16px;
+}
+
+/* 共通ボタン */
+.btn{
+  width:90%;
+  max-width:360px;
+  padding:16px;
+  margin:10px auto;
+  border:none;
+  border-radius:999px;
+  font-size:18px;
+  color:#fff;
+}
+
+/* ALL */
+.btn-all{
+  background:linear-gradient(135deg,#4A90E2,#2F6FD3);
+  box-shadow:0 6px 14px rgba(74,144,226,.35);
+}
+
+/* Bingo */
+.btn-bingo{
+  background:linear-gradient(135deg,#C0392B,#8E2A1F);
+  box-shadow:0 6px 14px rgba(192,57,43,.35);
+}
+
+.btn-sub{
+  background:#555;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🎯 年会抽選システム</h2>
+
+<input id="name" placeholder="お名前を入力してください">
+
+<button class="btn btn-sub" onclick="save()">名前を保存 / 変更</button>
+
+<button class="btn btn-all" onclick="location.href='mode1.html'">
+  ALL（全員1回）
+</button>
+
+<button class="btn btn-bingo" onclick="location.href='mode2.html'">
+  Bingo
+</button>
+
+<button class="btn btn-sub" onclick="location.href='record.html'">
+  抽選履歴
+</button>
+
+<script>
+const input=document.getElementById("name");
+input.value=localStorage.getItem("raffleName")||"";
+
+function save(){
+  const n=input.value.trim();
+  if(!n) return alert("お名前を入力してください");
+  localStorage.setItem("raffleName",n);
+  alert("名前を更新しました");
+}
+</script>
+
+</body>
+</html>
