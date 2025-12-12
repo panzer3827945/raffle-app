@@ -2,16 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
+<meta http-equiv="Cache-Control" content="no-store">
 <title>抽獎紀錄</title>
 
 <style>
 body { font-family: sans-serif; padding: 20px; }
 table { border-collapse: collapse; width: 100%; margin-top: 16px; }
 th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
-button { margin-left: 6px; }
+button { margin-right: 6px; }
 </style>
 </head>
 
@@ -20,10 +18,8 @@ button { margin-left: 6px; }
 <h2>抽獎紀錄</h2>
 
 <div>
-  密碼：
-  <input type="password" id="pwd">
-  <button onclick="load()">表示</button>
-  <button onclick="clearAll()">履歴削除</button>
+  <button onclick="load()">重新整理</button>
+  <button onclick="clearAll()">清空紀錄</button>
 </div>
 
 <table>
@@ -40,7 +36,6 @@ button { margin-left: 6px; }
 </table>
 
 <script>
-  console.log("RECORD_HTML_VERSION = 2025-API-HISTORY");
 function displayMode(mode){
   if(mode === "LIMIT") return "ALL";
   if(mode === "NOLIMIT") return "BINGO";
@@ -48,16 +43,10 @@ function displayMode(mode){
 }
 
 async function load(){
-  const pwd = document.getElementById("pwd").value;
-
-  const res = await fetch("/api/history",{
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password: pwd })
-  });
+  const res = await fetch("/api/history", { method:"POST" });
 
   if(!res.ok){
-    alert("パスワードが違います");
+    alert("取得失敗");
     return;
   }
 
@@ -79,20 +68,15 @@ async function load(){
 }
 
 async function clearAll(){
-  const pwd = document.getElementById("pwd").value;
   if(!confirm("履歴をすべて削除しますか？")) return;
 
-  const res = await fetch("/api/reset",{
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password: pwd })
-  });
+  const res = await fetch("/api/reset", { method:"POST" });
 
   if(res.ok){
     alert("履歴を削除しました");
     document.getElementById("rows").innerHTML = "";
   }else{
-    alert("パスワードが違います");
+    alert("削除失敗");
   }
 }
 </script>

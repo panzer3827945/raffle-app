@@ -7,17 +7,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 /* =========================================================
- * Middleware（一定要最前面）
+ * Middleware
  * ========================================================= */
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../frontend")));
 
 /* =========================================================
- * SQLite 資料目錄（Railway 穩定寫入）
- * =========================================================
- * Railway / 雲端環境不保證專案目錄可寫
- * /tmp 在 Railway 一定可寫
- */
+ * SQLite（Railway 安全：/tmp）
+ * ========================================================= */
 const DATA_DIR = "/tmp";
 
 if (!fs.existsSync(DATA_DIR)) {
@@ -30,11 +27,7 @@ const dbPath = path.join(DATA_DIR, "raffle.db");
  * DB 初始化
  * ========================================================= */
 const db = new sqlite3.Database(dbPath, err => {
-  if (err) {
-    console.error("DB open error:", err);
-  } else {
-    console.log("DB opened:", dbPath);
-  }
+  if (err) console.error("DB open error:", err);
 });
 
 db.serialize(() => {
@@ -51,38 +44,10 @@ db.serialize(() => {
 });
 
 /* =========================================================
- * 密碼驗證（防呆・不會 500）
- * ========================================================= */
-function checkPassword(req, res) {
-  try {
-    if (!process.env.ADMIN_PASSWORD) {
-      res.status(500).json({ message: "ADMIN_PASSWORD not set" });
-      return false;
-    }
-
-    if (!req.body || typeof req.body.password !== "string") {
-      res.status(400).json({ message: "password missing" });
-      return false;
-    }
-
-    if (req.body.password !== process.env.ADMIN_PASSWORD) {
-      res.status(401).json({ message: "password error" });
-      return false;
-    }
-
-    return true;
-  } catch (e) {
-    console.error("checkPassword exception:", e);
-    res.status(500).json({ message: "server error" });
-    return false;
-  }
-}
-
-/* =========================================================
  * API
  * ========================================================= */
 
-/* 新增抽獎紀錄（不需要密碼） */
+/* 新增抽獎紀錄 */
 app.post("/api/record", (req, res) => {
   const { name, prize, mode, device } = req.body || {};
   const time = new Date().toISOString();
@@ -101,12 +66,8 @@ app.post("/api/record", (req, res) => {
   );
 });
 
-/* 查詢抽獎紀錄（需密碼） */
+/* 查詢所有抽獎紀錄（無密碼） */
 app.post("/api/history", (req, res) => {
-  console.log("HISTORY request body =", req.body);
-
-  if (!checkPassword(req, res)) return;
-
   db.all(
     `SELECT time,name,mode,prize,device
      FROM records
@@ -121,12 +82,8 @@ app.post("/api/history", (req, res) => {
   );
 });
 
-/* 清空抽獎紀錄（需密碼） */
+/* 清空抽獎紀錄（無密碼） */
 app.post("/api/reset", (req, res) => {
-  console.log("RESET request body =", req.body);
-
-  if (!checkPassword(req, res)) return;
-
   db.run("DELETE FROM records", err => {
     if (err) {
       console.error("DELETE error:", err);
@@ -148,6 +105,5 @@ app.get("*", (req, res) => {
  * ========================================================= */
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
-  console.log("ADMIN_PASSWORD =", process.env.ADMIN_PASSWORD);
-  console.log("SERVER VERSION = RAFFLE-FINAL-STABLE");
+  console.log("SERVER VERSION = RAFFLE-NO-PASSWORD");
 });
