@@ -3,7 +3,6 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "npm start",
-    "healthcheckPath": "/"
+    "startCommand": "cd backend && npm install && node server.js"
   }
 }
