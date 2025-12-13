@@ -30,14 +30,21 @@ h2{margin:12px 0;font-weight:700}
 canvas{width:340px;height:340px}
 .pointer{
   position:absolute;
-  right:-10px;
+  right:-14px;
   top:50%;
   transform:translateY(-50%);
-  width:0;height:0;
-  border-top:16px solid transparent;
-  border-bottom:16px solid transparent;
-  border-right:32px solid #c0392b;
+  width:0;
+  height:0;
+  border-top:18px solid transparent;
+  border-bottom:18px solid transparent;
+  border-right:36px solid #e74c3c;
+
+  /* ✨ 發光 */
+  filter:
+    drop-shadow(0 0 6px rgba(231,76,60,.9))
+    drop-shadow(0 0 12px rgba(241,196,15,.6));
 }
+
 #result{font-size:20px;font-weight:700;margin-top:8px}
 </style>
 </head>
@@ -95,26 +102,63 @@ let spinning = false;
 function drawWheel(angle){
   ctx.clearRect(0,0,340,340);
   let start = angle;
+
   prizes.forEach(p=>{
-    const arc = (p.weight/total)*Math.PI*2;
+    const arc = (p.weight / total) * Math.PI * 2;
+
+    // 🎨 放射漸層（立體感）
+    const grad = ctx.createRadialGradient(
+      170,170,20,
+      170,170,150
+    );
+    grad.addColorStop(0, "#ffffff");
+    grad.addColorStop(1, p.color);
+
     ctx.beginPath();
     ctx.moveTo(170,170);
     ctx.arc(170,170,145,start,start+arc);
-    ctx.fillStyle = p.color;
+    ctx.fillStyle = grad;
     ctx.fill();
 
+    // 🖊 文字（描邊＋填色）
     ctx.save();
     ctx.translate(170,170);
-    ctx.rotate(start+arc/2);
-    ctx.textAlign="center";
-    ctx.font="bold 22px Arial";
-    ctx.fillStyle="#333";
+    ctx.rotate(start + arc/2);
+    ctx.textAlign = "center";
+    ctx.font = "bold 22px Arial";
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "rgba(255,255,255,.85)";
+    ctx.strokeText(p.text,100,8);
+    ctx.fillStyle = "#333";
     ctx.fillText(p.text,100,8);
     ctx.restore();
 
     start += arc;
   });
+
+  // 🪙 金屬外圈
+  ctx.beginPath();
+  ctx.arc(170,170,150,0,Math.PI*2);
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = "#D4AF37";
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(170,170,145,0,Math.PI*2);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#8C6A03";
+  ctx.stroke();
+
+  // ⚙ 中心軸
+  ctx.beginPath();
+  ctx.arc(170,170,6,0,Math.PI*2);
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#999";
+  ctx.stroke();
 }
+
 drawWheel(0);
 
 function prizeByAngle(angle){
