@@ -30,19 +30,15 @@ h2{margin:12px 0;font-weight:700}
 canvas{width:340px;height:340px}
 .pointer{
   position:absolute;
-  right:-14px;
+  right:5px;
   top:50%;
   transform:translateY(-50%);
   width:0;
   height:0;
-  border-top:18px solid transparent;
-  border-bottom:18px solid transparent;
-  border-right:36px solid #e74c3c;
-
-  /* ✨ 發光 */
-  filter:
-    drop-shadow(0 0 6px rgba(231,76,60,.9))
-    drop-shadow(0 0 12px rgba(241,196,15,.6));
+  border-top:14px solid transparent;
+  border-bottom:14px solid transparent;
+  border-right:28px solid #F1F3F6;
+  filter: drop-shadow(0 0 4px rgba(0,0,0,.25));
 }
 
 #result{font-size:20px;font-weight:700;margin-top:8px}
@@ -92,9 +88,9 @@ const canvas = document.getElementById("wheel");
 const ctx = canvas.getContext("2d");
 
 const prizes = [
-  { text:"1000", value:1000, weight:70, color:"#D4AF37" },
-  { text:"500",  value:500,  weight:20, color:"#C0392B" },
-  { text:"100",  value:100,  weight:10, color:"#F7DC6F" }
+  { text:"1000", value:1000, weight:70, color:"#FA897B" }, // 珊瑚紅（主獎）
+  { text:"500",  value:500,  weight:20, color:"#FFDD94" }, // 奶黃（次獎）
+  { text:"100",  value:100,  weight:10, color:"#86E3CE" }  // 薄荷（小獎）
 ];
 const total = prizes.reduce((s,p)=>s+p.weight,0);
 let spinning = false;
@@ -106,59 +102,48 @@ function drawWheel(angle){
   prizes.forEach(p=>{
     const arc = (p.weight / total) * Math.PI * 2;
 
-    // 🎨 放射漸層（立體感）
-    const grad = ctx.createRadialGradient(
-      170,170,20,
-      170,170,150
-    );
-    grad.addColorStop(0, "#ffffff");
-    grad.addColorStop(1, p.color);
-
     ctx.beginPath();
     ctx.moveTo(170,170);
-    ctx.arc(170,170,145,start,start+arc);
-    ctx.fillStyle = grad;
+    ctx.arc(170,170,140,start,start+arc);
+    ctx.fillStyle = p.color;
     ctx.fill();
 
-    // 🖊 文字（描邊＋填色）
+    // 分隔線（低存在感）
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(255,255,255,.35)";
+    ctx.stroke();
+
+    // 文字（深色字 + 淺描邊）
     ctx.save();
     ctx.translate(170,170);
-    ctx.rotate(start + arc/2);
+    ctx.rotate(start + arc / 2);
     ctx.textAlign = "center";
-    ctx.font = "bold 22px Arial";
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = "rgba(255,255,255,.85)";
-    ctx.strokeText(p.text,100,8);
-    ctx.fillStyle = "#333";
-    ctx.fillText(p.text,100,8);
+    ctx.font = "bold 21px Arial";
+
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255,255,255,.8)";
+    ctx.strokeText(p.text,85,8);
+
+    ctx.fillStyle = "#1F2D3D"; // 深灰藍字
+    ctx.fillText(p.text,85,8);
     ctx.restore();
 
     start += arc;
   });
 
-  // 🪙 金屬外圈
-  ctx.beginPath();
-  ctx.arc(170,170,150,0,Math.PI*2);
-  ctx.lineWidth = 8;
-  ctx.strokeStyle = "#D4AF37";
-  ctx.stroke();
-
+  // 外框：改成中性色（不搶）
   ctx.beginPath();
   ctx.arc(170,170,145,0,Math.PI*2);
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = "#8C6A03";
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#D6DCE5"; // 淺灰藍
   ctx.stroke();
 
-  // ⚙ 中心軸
+  // 中央軸
   ctx.beginPath();
-  ctx.arc(170,170,6,0,Math.PI*2);
-  ctx.fillStyle = "#fff";
+  ctx.arc(170,170,4,0,Math.PI*2);
+  ctx.fillStyle = "#ffffff";
   ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = "#999";
-  ctx.stroke();
 }
-
 drawWheel(0);
 
 function prizeByAngle(angle){
