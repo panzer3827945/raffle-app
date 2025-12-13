@@ -13,7 +13,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "../frontend")));
 
 /* =========================================================
- * SQLite（Railway 安全：/tmp）
+ * SQLite（Railway /tmp 穩定寫入）
  * ========================================================= */
 const DATA_DIR = "/tmp";
 
@@ -27,7 +27,11 @@ const dbPath = path.join(DATA_DIR, "raffle.db");
  * DB 初始化
  * ========================================================= */
 const db = new sqlite3.Database(dbPath, err => {
-  if (err) console.error("DB open error:", err);
+  if (err) {
+    console.error("DB open error:", err);
+  } else {
+    console.log("DB opened:", dbPath);
+  }
 });
 
 db.serialize(() => {
@@ -41,7 +45,44 @@ db.serialize(() => {
       device TEXT
     )
   `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS meta (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    )
+  `);
+
+  db.run(`
+    INSERT OR IGNORE INTO meta (key, value)
+    VALUES ('resetVersion', ?)
+  `, [String(Date.now())]);
 });
+
+/* =========================================================
+ * resetVersion helpers
+ * ========================================================= */
+function getResetVersion(callback) {
+  db.get(
+    `SELECT value FROM meta WHERE key='resetVersion'`,
+    (err, row) => {
+      if (err) return callback(null);
+      callback(row ? row.value : null);
+    }
+  );
+}
+
+function updateResetVersion(callback) {
+  const newVersion = String(Date.now());
+  db.run(
+    `UPDATE meta SET value=? WHERE key='resetVersion'`,
+    [newVersion],
+    err => {
+      if (err) return callback(null);
+      callback(newVersion);
+    }
+  );
+}
 
 /* =========================================================
  * API
@@ -66,7 +107,7 @@ app.post("/api/record", (req, res) => {
   );
 });
 
-/* 查詢所有抽獎紀錄（無密碼） */
+/* 查詢所有抽獎紀錄 */
 app.post("/api/history", (req, res) => {
   db.all(
     `SELECT time,name,mode,prize,device
@@ -82,14 +123,32 @@ app.post("/api/history", (req, res) => {
   );
 });
 
-/* 清空抽獎紀錄（無密碼） */
+/* 清空抽獎紀錄（同步 resetVersion） */
 app.post("/api/reset", (req, res) => {
   db.run("DELETE FROM records", err => {
     if (err) {
       console.error("DELETE error:", err);
       return res.status(500).json({ ok: false });
     }
-    res.json({ ok: true });
+
+    updateResetVersion(newVersion => {
+      if (!newVersion) {
+        return res.status(500).json({ ok: false });
+      }
+      res.json({
+        ok: true,
+        resetVersion: newVersion
+      });
+    });
+  });
+});
+
+/* 取得目前 resetVersion */
+app.get("/api/reset-version", (req, res) => {
+  getResetVersion(version => {
+    res.json({
+      resetVersion: version
+    });
   });
 });
 
@@ -105,5 +164,5 @@ app.get("*", (req, res) => {
  * ========================================================= */
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
-  console.log("SERVER VERSION = RAFFLE-NO-PASSWORD");
+  console.log("SERVER VERSION = RAFFLE-FINAL-NO-PASSWORD-RESETVERSION");
 });

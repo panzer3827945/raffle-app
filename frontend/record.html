@@ -2,50 +2,153 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Cache-Control" content="no-store">
+
+<!-- ✅ 手機版一定要有 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- ✅ 防快取，避免舊 JS -->
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
 <title>抽獎紀錄</title>
 
 <style>
-body { font-family: sans-serif; padding: 20px; }
-table { border-collapse: collapse; width: 100%; margin-top: 16px; }
-th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
-button { margin-right: 6px; }
+/* ===== 基本樣式 ===== */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Noto Sans JP", Arial, sans-serif;
+  padding: 12px;
+  margin: 0;
+  background: #fafafa;
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+button {
+  padding: 8px 12px;
+  font-size: 14px;
+  border: none;
+  border-radius: 6px;
+  background: #d35400;
+  color: #fff;
+  margin-right: 6px;
+}
+
+button:active {
+  opacity: 0.8;
+}
+
+/* ===== 表格樣式 ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  margin-top: 12px;
+  table-layout: fixed;
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 6px;
+  text-align: center;
+  word-break: break-all;
+}
+
+th {
+  background: #fdecea;
+}
+
+/* ===== 手機優化 ===== */
+@media (max-width: 600px) {
+  h2 {
+    font-size: 18px;
+  }
+
+  button {
+    width: 100%;
+    margin: 4px 0;
+    font-size: 15px;
+  }
+
+  th, td {
+    font-size: 12px;
+    padding: 4px;
+  }
+
+  /* 讓表格橫向可滑動 */
+  .table-wrap {
+    overflow-x: auto;
+  }
+}
 </style>
 </head>
 
 <body>
 
-<h2>抽獎紀錄</h2>
+<h2>📊 抽獎紀錄</h2>
 
 <div>
-  <button onclick="load()">重新整理</button>
-  <button onclick="clearAll()">清空紀錄</button>
+  <button onclick="load()">🔄 重新整理</button>
+  <button onclick="clearAll()">🗑 清空紀錄</button>
 </div>
 
-<table>
-  <thead>
-    <tr>
-      <th>日時</th>
-      <th>名前</th>
-      <th>モード</th>
-      <th>賞品</th>
-      <th>端末ID</th>
-    </tr>
-  </thead>
-  <tbody id="rows"></tbody>
-</table>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>日時</th>
+        <th>名前</th>
+        <th>モード</th>
+        <th>賞品</th>
+        <th>端末ID</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
 
 <script>
+/* ===== 顯示模式轉換 ===== */
 function displayMode(mode){
-  if(mode === "LIMIT") return "ALL";
-  if(mode === "NOLIMIT") return "BINGO";
-  return mode;
+  if (mode === "LIMIT") return "ALL";
+  if (mode === "NOLIMIT") return "BINGO";
+  return mode || "";
 }
 
-async function load(){
-  const res = await fetch("/api/history", { method:"POST" });
+/* =====================================================
+ * resetVersion 同步（關鍵）
+ * ===================================================== */
+async function syncResetVersion(){
+  try {
+    const res = await fetch("/api/reset-version");
+    if (!res.ok) return;
 
-  if(!res.ok){
+    const data = await res.json();
+    const localVer = localStorage.getItem("resetVersion");
+
+    if (localVer !== String(data.resetVersion)) {
+      // ✅ 清除所有抽獎限制
+      localStorage.clear();
+      localStorage.setItem("resetVersion", String(data.resetVersion));
+      console.log("resetVersion synced:", data.resetVersion);
+    }
+  } catch (e) {
+    console.warn("resetVersion sync failed");
+  }
+}
+
+/* =====================================================
+ * 載入紀錄
+ * ===================================================== */
+async function load(){
+  await syncResetVersion();
+
+  const res = await fetch("/api/history", { method: "POST" });
+
+  if (!res.ok){
     alert("取得失敗");
     return;
   }
@@ -54,31 +157,46 @@ async function load(){
   const tbody = document.getElementById("rows");
   tbody.innerHTML = "";
 
-  data.forEach(r=>{
+  data.forEach(r => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${r.time}</td>
-      <td>${r.name}</td>
+      <td>${r.time || ""}</td>
+      <td>${r.name || ""}</td>
       <td>${displayMode(r.mode)}</td>
-      <td>${r.prize}</td>
-      <td>${r.device}</td>
+      <td>${r.prize ?? ""}</td>
+      <td>${r.device || ""}</td>
     `;
     tbody.appendChild(tr);
   });
 }
 
+/* =====================================================
+ * 清空紀錄（同步所有設備）
+ * ===================================================== */
 async function clearAll(){
-  if(!confirm("履歴をすべて削除しますか？")) return;
+  if (!confirm("履歴をすべて削除しますか？")) return;
 
-  const res = await fetch("/api/reset", { method:"POST" });
+  const res = await fetch("/api/reset", { method: "POST" });
 
-  if(res.ok){
-    alert("履歴を削除しました");
-    document.getElementById("rows").innerHTML = "";
-  }else{
+  if (!res.ok){
     alert("削除失敗");
+    return;
   }
+
+  const data = await res.json();
+
+  // ✅ 更新 resetVersion，讓所有設備可再抽
+  localStorage.clear();
+  if (data.resetVersion) {
+    localStorage.setItem("resetVersion", String(data.resetVersion));
+  }
+
+  document.getElementById("rows").innerHTML = "";
+  alert("履歴を削除しました");
 }
+
+/* 頁面打開時自動同步一次 */
+syncResetVersion();
 </script>
 
 </body>
