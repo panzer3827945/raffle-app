@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>年会抽選（モード2）</title>
+<title>年会抽選（Bingo）</title>
 
 <script src="shared.js"></script>
 
@@ -14,12 +14,7 @@ body{
   text-align:center;
   padding:16px;
 }
-
-h2{
-  margin:12px 0;
-  font-weight:700;
-}
-
+h2{margin:12px 0;font-weight:700}
 .btn{
   width:90%;
   max-width:360px;
@@ -30,48 +25,23 @@ h2{
   background:linear-gradient(135deg,#c0392b,#8e2a1f);
   color:#fff;
   font-size:18px;
-  box-shadow:0 6px 14px rgba(192,57,43,.35);
 }
-
-/* ステージ */
-.stage{
-  width:340px;
-  height:340px;
-  margin:14px auto 6px;
-  position:relative;
-}
-
-canvas{
-  width:340px;
-  height:340px;
-}
-
-/* ポインター（右側） */
+.stage{width:340px;height:340px;margin:14px auto;position:relative}
+canvas{width:340px;height:340px}
 .pointer{
-  position:absolute;
-  right:-10px;
-  top:50%;
-  transform:translateY(-50%);
+  position:absolute;right:-10px;top:50%;transform:translateY(-50%);
   width:0;height:0;
   border-top:16px solid transparent;
   border-bottom:16px solid transparent;
   border-right:32px solid #c0392b;
-  filter:
-    drop-shadow(0 2px 3px rgba(0,0,0,.4))
-    drop-shadow(0 0 6px rgba(241,196,15,.7));
 }
-
-#result{
-  font-size:20px;
-  font-weight:700;
-  margin-top:8px;
-}
+#result{font-size:20px;font-weight:700}
 </style>
 </head>
 
 <body>
 
-<h2>🎉 年会抽選（モード2）</h2>
+<h2>🎉 年会抽選（Bingo）</h2>
 <button class="btn" onclick="location.href='index.html'">← トップへ戻る</button>
 
 <div class="stage">
@@ -79,152 +49,34 @@ canvas{
   <div class="pointer"></div>
 </div>
 
-<button class="btn" onclick="start()">抽選スタート</button>
+<button class="btn" onclick="startDraw()">抽選スタート</button>
 <div id="result"></div>
 
 <script>
-const canvas = document.getElementById("wheel");
-const ctx = canvas.getContext("2d");
-
-/* 年会カラー */
-const prizes = [
-  { text:"1000", value:1000, weight:70, color:"#D4AF37" }, // ゴールド
-  { text:"500",  value:500,  weight:20, color:"#C0392B" }, // レッド
-  { text:"100",  value:100,  weight:10, color:"#F7DC6F" }  // ライトゴールド
-];
-const total = prizes.reduce((s,p)=>s+p.weight,0);
-
-let spinning=false;
-
-/* ルーレット描画 */
-function drawWheel(angle){
-  ctx.clearRect(0,0,340,340);
-  let start=angle;
-
-  prizes.forEach(p=>{
-    const arc=(p.weight/total)*Math.PI*2;
-
-    ctx.beginPath();
-    ctx.moveTo(170,170);
-    ctx.arc(170,170,145,start,start+arc);
-
-    const grad=ctx.createRadialGradient(170,170,10,170,170,145);
-    grad.addColorStop(0,"#ffffff");
-    grad.addColorStop(1,p.color);
-    ctx.fillStyle=grad;
-    ctx.fill();
-
-    ctx.save();
-    ctx.translate(170,170);
-    ctx.rotate(start+arc/2);
-    ctx.textAlign="center";
-    ctx.font="bold 22px Arial";
-    ctx.lineWidth=3;
-    ctx.strokeStyle="rgba(255,255,255,.85)";
-    ctx.strokeText(p.text,100,8);
-    ctx.fillStyle="#333";
-    ctx.fillText(p.text,100,8);
-    ctx.restore();
-
-    start+=arc;
-  });
-
-  /* メタル外枠 */
-  ctx.beginPath();
-  ctx.arc(170,170,150,0,Math.PI*2);
-  ctx.lineWidth=6;
-  ctx.strokeStyle="#8C6A03";
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(170,170,145,0,Math.PI*2);
-  ctx.lineWidth=6;
-  ctx.strokeStyle="#F1C40F";
-  ctx.stroke();
-
-  /* 外周ドット */
-  for(let i=0;i<24;i++){
-    const a=(i/24)*Math.PI*2;
-    const x=170+Math.cos(a)*155;
-    const y=170+Math.sin(a)*155;
-    ctx.beginPath();
-    ctx.arc(x,y,2.3,0,Math.PI*2);
-    ctx.fillStyle="#ffffff";
-    ctx.fill();
-  }
-
-  /* ★ 中央軸点（小・白のみ） */
-  ctx.beginPath();
-  ctx.arc(170,170,4,0,Math.PI*1);
-  ctx.fillStyle="#ffffff";
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.arc(170,170,4,0,Math.PI*1);
-  ctx.lineWidth=1;
-  ctx.strokeStyle="rgba(0,0,0,.25)";
-  ctx.stroke();
+/* resetVersion 抽獎前同步 */
+async function syncResetVersionBeforeDraw(){
+  try{
+    const r=await fetch("/api/reset-version",{cache:"no-store"});
+    const d=await r.json();
+    const sv=String(d.resetVersion);
+    const lv=localStorage.getItem("resetVersion");
+    if(lv!==sv){
+      localStorage.setItem("resetVersion",sv);
+    }
+  }catch(e){}
 }
 
-/* 角度から当選結果を算出 */
-function prizeByAngle(angle){
-  const a=((angle%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
-  let acc=0;
-  for(const p of prizes){
-    const arc=(p.weight/total)*Math.PI*2;
-    if(a>=acc && a<acc+arc) return p.value;
-    acc+=arc;
-  }
-  return prizes[0].value;
-}
+/* 抽獎流程 */
+async function startDraw(){
+  await syncResetVersionBeforeDraw();
 
-drawWheel(0);
-
-function start(){
-  if(spinning) return;
   const name=localStorage.getItem("raffleName");
   if(!name) return alert("トップページで名前を入力してください");
 
-  spinning=true;
-  result.innerText="";
-
-  const rnd=Math.random()*total;
-  let accW=0,startAngle=0,targetArc=0;
-
-  for(const p of prizes){
-    if(rnd<accW+p.weight){
-      targetArc=(p.weight/total)*Math.PI*2;
-      break;
-    }
-    startAngle+=(p.weight/total)*Math.PI*2;
-    accW+=p.weight;
-  }
-
-  const offset=Math.random()*targetArc;
-  const target=startAngle+offset;
-  const spins=(5+Math.random()*2)*Math.PI*2;
-  const finalAngle=spins-target;
-
-  const t0=performance.now(),duration=4200;
-
-  function animate(t){
-    const p=Math.min((t-t0)/duration,1);
-    const ease=1-Math.pow(1-p,3);
-    drawWheel(ease*finalAngle);
-    if(p<1){
-      requestAnimationFrame(animate);
-    }else{
-      const finalPrize=prizeByAngle(
-        (Math.PI*2-(finalAngle%(Math.PI*2)))%(Math.PI*2)
-      );
-      submitRecord(name,finalPrize,"NOLIMIT");
-      result.innerText=`${name} さん：${finalPrize} 当選`;
-      spinning=false;
-    }
-  }
-  requestAnimationFrame(animate);
+  const prize=Math.random()<0.7?1000:Math.random()<0.9?500:100;
+  await submitRecord(name,prize,"NOLIMIT");
+  result.innerText=`${name} さん：${prize} 当選`;
 }
 </script>
-
 </body>
 </html>
