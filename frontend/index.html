@@ -2,7 +2,15 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+
+<!-- 手機一定要 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- 防快取，避免舊 JS -->
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
 <title>年会抽選システム</title>
 
 <style>
@@ -63,11 +71,11 @@ input{
 
 <button class="btn btn-sub" onclick="save()">名前を保存 / 変更</button>
 
-<button class="btn btn-all" onclick="location.href='mode1.html'">
+<button class="btn btn-all" onclick="goMode('mode1.html')">
   ALL（全員1回）
 </button>
 
-<button class="btn btn-bingo" onclick="location.href='mode2.html'">
+<button class="btn btn-bingo" onclick="goMode('mode2.html')">
   Bingo
 </button>
 
@@ -76,14 +84,63 @@ input{
 </button>
 
 <script>
-const input=document.getElementById("name");
-input.value=localStorage.getItem("raffleName")||"";
+/* =====================================================
+ * resetVersion 同步（🔥全設備統一重置的核心）
+ * ===================================================== */
+async function syncResetVersion(){
+  try{
+    const res = await fetch("/api/reset-version");
+    if(!res.ok) return;
+
+    const data = await res.json();
+    const serverVer = String(data.resetVersion);
+    const localVer = localStorage.getItem("resetVersion");
+
+    if(localVer !== serverVer){
+      // 🔥 重點：清掉「不能再抽」的本機記憶
+      localStorage.removeItem("played");
+      localStorage.removeItem("deviceId");
+
+      localStorage.setItem("resetVersion", serverVer);
+      console.log("reset synced:", serverVer);
+    }
+  }catch(e){
+    console.warn("resetVersion sync failed");
+  }
+}
+
+/* 頁面一開就同步一次 */
+syncResetVersion();
+
+/* =====================================================
+ * 名稱處理
+ * ===================================================== */
+const input = document.getElementById("name");
+input.value = localStorage.getItem("raffleName") || "";
 
 function save(){
-  const n=input.value.trim();
-  if(!n) return alert("お名前を入力してください");
-  localStorage.setItem("raffleName",n);
+  const n = input.value.trim();
+  if(!n){
+    alert("お名前を入力してください");
+    return;
+  }
+  localStorage.setItem("raffleName", n);
   alert("名前を更新しました");
+}
+
+/* =====================================================
+ * 進入抽獎模式（保證 reset 同步後再進）
+ * ===================================================== */
+async function goMode(url){
+  await syncResetVersion();
+
+  const name = localStorage.getItem("raffleName");
+  if(!name){
+    alert("先にお名前を入力してください");
+    return;
+  }
+
+  location.href = url;
 }
 </script>
 
