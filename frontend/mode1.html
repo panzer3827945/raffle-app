@@ -55,23 +55,15 @@ canvas{width:340px;height:340px}
 <div id="result"></div>
 
 <script>
-/* ===== resetVersion：抽獎前一定同步 ===== */
-async function syncResetVersionBeforeDraw(){
-  try{
-    const r = await fetch("/api/reset-version",{cache:"no-store"});
-    const d = await r.json();
-    const sv = String(d.resetVersion);
-    const lv = localStorage.getItem("resetVersion");
-    if(lv !== sv){
-      localStorage.removeItem("used-limit");
-      localStorage.setItem("resetVersion",sv);
-    }
-  }catch(e){}
+/* ===== 抽獎前一定同步 reset ===== */
+async function prepareDraw(){
+  await syncResetVersion();
 }
 
 /* ===== 轉盤設定 ===== */
 const canvas=document.getElementById("wheel");
 const ctx=canvas.getContext("2d");
+
 const prizes=[
   {text:"1000",value:1000,weight:70,color:"#D4AF37"},
   {text:"500", value:500, weight:20,color:"#C0392B"},
@@ -114,11 +106,11 @@ function prizeByAngle(angle){
   return prizes[0].value;
 }
 
-/* ===== 抽獎主流程（關鍵） ===== */
+/* ===== 抽獎主流程（最終版）===== */
 async function startDraw(){
   if(spinning) return;
 
-  await syncResetVersionBeforeDraw();
+  await prepareDraw();
 
   const name=localStorage.getItem("raffleName");
   if(!name) return alert("トップで名前を入力してください");
@@ -133,7 +125,10 @@ async function startDraw(){
   const rnd=Math.random()*total;
   let accW=0,startAngle=0,targetArc=0;
   for(const p of prizes){
-    if(rnd<accW+p.weight){targetArc=(p.weight/total)*Math.PI*2;break;}
+    if(rnd<accW+p.weight){
+      targetArc=(p.weight/total)*Math.PI*2;
+      break;
+    }
     startAngle+=(p.weight/total)*Math.PI*2;
     accW+=p.weight;
   }
@@ -150,7 +145,9 @@ async function startDraw(){
   }
 
   async function finish(){
-    const prize=prizeByAngle((Math.PI*2-(finalAngle%(Math.PI*2)))%(Math.PI*2));
+    const prize=prizeByAngle(
+      (Math.PI*2-(finalAngle%(Math.PI*2)))%(Math.PI*2)
+    );
     used.push(dev);
     localStorage.setItem("used-limit",JSON.stringify(used));
     await submitRecord(name,prize,"LIMIT");
@@ -161,5 +158,6 @@ async function startDraw(){
   requestAnimationFrame(anim);
 }
 </script>
+
 </body>
 </html>

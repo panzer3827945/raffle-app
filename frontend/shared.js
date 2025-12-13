@@ -1,46 +1,61 @@
-/* ===== 端末 ID（穩定版） ===== */
+/* =====================================================
+ * shared.js（最終穩定版）
+ * ===================================================== */
+
+/* ===== 裝置 ID（唯一，可被 reset 清除）===== */
 function getDeviceID(){
-  let id = localStorage.getItem("device-id");
+  let id = localStorage.getItem("deviceId");
   if(!id){
-    id = "dev-" + Math.random().toString(36).slice(2) + Date.now();
-    localStorage.setItem("device-id", id);
+    id = crypto.randomUUID();
+    localStorage.setItem("deviceId", id);
   }
   return id;
 }
 
-/* ===== 抽獎機率（70/20/10） ===== */
-function drawPrize(){
-  const r = Math.random() * 100;
-  if (r < 70) return 1000;
-  if (r < 90) return 500;
-  return 100;
-}
-
-/* ===== 紀錄送出 ===== */
-async function submitRecord(name, prize, mode){
-  await fetch("/api/record", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name,
-      device: getDeviceID(),
-      prize,
-      mode
-    })
-  });
-}
-
-/* ===== reset-version 同步（關鍵） ===== */
-(async function syncReset(){
+/* ===== resetVersion 同步（全設備統一）===== */
+async function syncResetVersion(){
   try{
     const res = await fetch("/api/reset-version", { cache: "no-store" });
-    const data = await res.json();
+    if(!res.ok) return;
 
-    const localVer = localStorage.getItem("reset-version");
-    if(localVer !== String(data.version)){
+    const data = await res.json();
+    const serverVer = String(data.resetVersion);
+    const localVer = localStorage.getItem("resetVersion");
+
+    if(localVer !== serverVer){
+      // 🔥 清掉所有會影響抽獎的本機狀態
       localStorage.removeItem("used-limit");
-      localStorage.setItem("reset-version", data.version);
-      console.log("端末制限を解除しました");
+      localStorage.removeItem("played");
+      localStorage.removeItem("deviceId");
+
+      localStorage.setItem("resetVersion", serverVer);
+      console.log("[reset synced]", serverVer);
     }
-  }catch(e){}
-})();
+  }catch(e){
+    console.warn("reset sync failed");
+  }
+}
+
+/* ===== 抽獎紀錄送出（一定要 await）===== */
+async function submitRecord(name, prize, mode){
+  const device = getDeviceID();
+
+  try{
+    const res = await fetch("/api/record", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        prize,
+        mode,
+        device
+      })
+    });
+
+    if(!res.ok){
+      console.error("record failed");
+    }
+  }catch(e){
+    console.error("record error", e);
+  }
+}

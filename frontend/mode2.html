@@ -29,13 +29,16 @@ h2{margin:12px 0;font-weight:700}
 .stage{width:340px;height:340px;margin:14px auto;position:relative}
 canvas{width:340px;height:340px}
 .pointer{
-  position:absolute;right:-10px;top:50%;transform:translateY(-50%);
+  position:absolute;
+  right:-10px;
+  top:50%;
+  transform:translateY(-50%);
   width:0;height:0;
   border-top:16px solid transparent;
   border-bottom:16px solid transparent;
   border-right:32px solid #c0392b;
 }
-#result{font-size:20px;font-weight:700}
+#result{font-size:20px;font-weight:700;margin-top:8px}
 </style>
 </head>
 
@@ -53,30 +56,124 @@ canvas{width:340px;height:340px}
 <div id="result"></div>
 
 <script>
-/* resetVersion 抽獎前同步 */
+/* =====================================================
+ * resetVersion 同步（🔥真正完整版）
+ * ===================================================== */
 async function syncResetVersionBeforeDraw(){
   try{
-    const r=await fetch("/api/reset-version",{cache:"no-store"});
-    const d=await r.json();
-    const sv=String(d.resetVersion);
-    const lv=localStorage.getItem("resetVersion");
-    if(lv!==sv){
-      localStorage.setItem("resetVersion",sv);
+    const r = await fetch("/api/reset-version",{cache:"no-store"});
+    const d = await r.json();
+    const sv = String(d.resetVersion);
+    const lv = localStorage.getItem("resetVersion");
+
+    if(lv !== sv){
+      // 🔥 清掉所有「設備判斷」相關資料
+      localStorage.removeItem("used-limit");
+      localStorage.removeItem("played");
+      localStorage.removeItem("deviceId");
+
+      localStorage.setItem("resetVersion", sv);
+      console.log("reset synced:", sv);
     }
   }catch(e){}
 }
 
-/* 抽獎流程 */
+/* =====================================================
+ * 轉盤設定
+ * ===================================================== */
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+
+const prizes = [
+  { text:"1000", value:1000, weight:70, color:"#D4AF37" },
+  { text:"500",  value:500,  weight:20, color:"#C0392B" },
+  { text:"100",  value:100,  weight:10, color:"#F7DC6F" }
+];
+const total = prizes.reduce((s,p)=>s+p.weight,0);
+let spinning = false;
+
+function drawWheel(angle){
+  ctx.clearRect(0,0,340,340);
+  let start = angle;
+  prizes.forEach(p=>{
+    const arc = (p.weight/total)*Math.PI*2;
+    ctx.beginPath();
+    ctx.moveTo(170,170);
+    ctx.arc(170,170,145,start,start+arc);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(170,170);
+    ctx.rotate(start+arc/2);
+    ctx.textAlign="center";
+    ctx.font="bold 22px Arial";
+    ctx.fillStyle="#333";
+    ctx.fillText(p.text,100,8);
+    ctx.restore();
+
+    start += arc;
+  });
+}
+drawWheel(0);
+
+function prizeByAngle(angle){
+  const a=((angle%(Math.PI*2))+Math.PI*2)%(Math.PI*2);
+  let acc=0;
+  for(const p of prizes){
+    const arc=(p.weight/total)*Math.PI*2;
+    if(a>=acc && a<acc+arc) return p.value;
+    acc+=arc;
+  }
+  return prizes[0].value;
+}
+
+/* =====================================================
+ * 抽獎主流程（最終安全版）
+ * ===================================================== */
 async function startDraw(){
+  if(spinning) return;
+
   await syncResetVersionBeforeDraw();
 
-  const name=localStorage.getItem("raffleName");
+  const name = localStorage.getItem("raffleName");
   if(!name) return alert("トップページで名前を入力してください");
 
-  const prize=Math.random()<0.7?1000:Math.random()<0.9?500:100;
-  await submitRecord(name,prize,"NOLIMIT");
-  result.innerText=`${name} さん：${prize} 当選`;
+  spinning = true;
+  result.innerText = "";
+
+  const rnd = Math.random()*total;
+  let accW=0,startAngle=0,targetArc=0;
+  for(const p of prizes){
+    if(rnd<accW+p.weight){
+      targetArc=(p.weight/total)*Math.PI*2;
+      break;
+    }
+    startAngle+=(p.weight/total)*Math.PI*2;
+    accW+=p.weight;
+  }
+
+  const offset=Math.random()*targetArc;
+  const finalAngle=(5+Math.random()*2)*Math.PI*2-(startAngle+offset);
+  const t0=performance.now(),duration=4200;
+
+  function anim(t){
+    const p=Math.min((t-t0)/duration,1);
+    drawWheel((1-Math.pow(1-p,3))*finalAngle);
+    if(p<1) requestAnimationFrame(anim);
+    else finish();
+  }
+
+  async function finish(){
+    const prize=prizeByAngle((Math.PI*2-(finalAngle%(Math.PI*2)))%(Math.PI*2));
+    await submitRecord(name,prize,"NOLIMIT");
+    result.innerText=`${name} さん：${prize} 当選`;
+    spinning=false;
+  }
+
+  requestAnimationFrame(anim);
 }
 </script>
+
 </body>
 </html>
